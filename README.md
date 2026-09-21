@@ -74,7 +74,6 @@ without Home Assistant. `uv.lock` pins development tooling; the library dependen
 range remains compatible with the consuming application's aiohttp version.
 
 For development with the adjacent Home Assistant integration, install this folder
-editable in its environment. Do not release an integration dependency on `0.1.0`
-until that version is published and its installation from PyPI is verified.
+editable in its environment.
 
 Original source copyright (c) 2025 Thomas Wright, MIT license.
