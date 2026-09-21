@@ -34,9 +34,30 @@ GET_PRODUCTS = """query getProducts($petId: String!) {
 }"""
 GET_GPS = """query getPetlinkGps($id: String!) {
   getPetlinkGps(id: $id) { code petlinkGps {
-    settings { updateFrequency enableGpsOnDefault }
+    settings {
+      updateFrequency enableGpsOnDefault
+      sentinelMigrationDone migrationWaitingForConnection
+    }
     lastKnownPosition { lat lng alt radius positionType date }
-    lastKnownStatus { battery liveTracking energySavingMode date }
+    lastKnownStatus {
+      battery charging liveTracking energySavingMode offline shutdown
+      firmwareVersion date
+    }
+    newFirmwareVersion { version }
+  } }
+}"""
+GET_PETS_AND_PRODUCTS = """query getPetsAndProducts {
+  getPetsAndProducts { code
+    pets { id name species image { url } }
+    products {
+      id petId entityType serialNumber deviceType subscriptionIsActive
+      endOfLifeDevice lastKnownStatus { energySavingMode firmwareVersion }
+    }
+  }
+}"""
+GET_SUBSCRIPTION = """query getSubscriptionByProductId($productId: String!) {
+  getSubscriptionByProductId(productId: $productId) { code subscription {
+    id status currentTermStart currentTermEnd nextBillingAt
   } }
 }"""
 GET_ACTIVITY = """query getActivitiesCat(
@@ -246,6 +267,23 @@ class KippyGraphQLApi:
             GET_PRODUCTS, "getProducts", {"petId": _identifier(pet_id)}
         )
         return _objects(result.get("products"))
+
+    async def get_pets_and_products(self) -> dict[str, list[dict[str, Any]]]:
+        """Read every pet and product in one round trip; products carry ``petId``."""
+        result = await self._operation(GET_PETS_AND_PRODUCTS, "getPetsAndProducts")
+        return {key: _objects(result.get(key)) for key in ("pets", "products")}
+
+    async def get_subscription(self, product_id: str) -> dict[str, Any]:
+        """Read a tracker's plan status and term dates (replaces legacy expiry days)."""
+        result = await self._operation(
+            GET_SUBSCRIPTION,
+            "getSubscriptionByProductId",
+            {"productId": _identifier(product_id)},
+        )
+        subscription = result.get("subscription")
+        if not isinstance(subscription, dict):
+            raise KippyResponseError("Subscription data is missing")
+        return subscription
 
     async def get_petlink_gps(self, product_id: str) -> dict[str, Any]:
         """Read cached position, status and settings without waking the tracker."""

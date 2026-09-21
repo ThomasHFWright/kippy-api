@@ -79,8 +79,9 @@ rejection. Migrated accounts may still authenticate to legacy with different IDs
 Use `backend="legacy"` or `backend="graphql"` to select explicitly. Outages, MFA,
 account confirmation/reset requirements and empty results never trigger switching.
 
-The new client provides pets/products, cached GPS/status/settings, account migration
-status, general and cat activity reports, hourly activity and position history.
+The new client provides pets/products (separately or combined), cached
+GPS/status/settings, tracker firmware and migration flags, subscription terms, account
+migration status, general and cat activity reports, hourly activity and position history.
 All date arguments are timezone-aware datetimes. Device commands, keep-alives and
 settings writes are separate explicit methods; reads never send them. GraphQL and
 application-level errors raise `KippyResponseError` instead of becoming empty data.

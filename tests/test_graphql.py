@@ -463,3 +463,52 @@ async def test_force_login_refreshes_valid_tokens():
     api, session = client((200, {"AuthenticationResult": AUTH | {"IdToken": "forced"}}))
     assert (await api.login("email", "password", force=True))["IdToken"] == "forced"
     assert session.post.call_count == 1
+
+
+async def test_combined_and_subscription_reads():
+    """Read pets with products in one call and a tracker's plan term without writes."""
+    pets = [{"id": "pet-uuid"}]
+    products = [{"id": "tracker-uuid", "petId": "pet-uuid"}]
+    subscription = {"status": "active", "currentTermEnd": "2027-01-01T00:00:00Z"}
+    api, session = client(
+        (
+            200,
+            {
+                "data": {
+                    "getPetsAndProducts": {
+                        "code": "200",
+                        "pets": pets,
+                        "products": products,
+                    }
+                }
+            },
+        ),
+        (
+            200,
+            {
+                "data": {
+                    "getSubscriptionByProductId": {
+                        "code": "200",
+                        "subscription": subscription,
+                    }
+                }
+            },
+        ),
+        (
+            200,
+            {
+                "data": {
+                    "getSubscriptionByProductId": {"code": "200", "subscription": None}
+                }
+            },
+        ),
+    )
+    assert await api.get_pets_and_products() == {"pets": pets, "products": products}
+    assert await api.get_subscription("tracker-uuid") == subscription
+    with pytest.raises(KippyResponseError):
+        await api.get_subscription("tracker-uuid")
+    assert session.post.call_args_list[1].kwargs["json"]["variables"] == {
+        "productId": "tracker-uuid"
+    }
+    for field in ("offline", "shutdown", "newFirmwareVersion", "sentinelMigrationDone"):
+        assert field in graphql.GET_GPS

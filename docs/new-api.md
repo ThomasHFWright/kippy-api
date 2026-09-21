@@ -48,7 +48,9 @@ GraphQL authentication succeeds, not an unauthenticated discovery endpoint.
 | `get_user` | `getUser` | Account ID and migrated flag returned |
 | `get_pets` | `getPets` | Four pets; IDs remain strings |
 | `get_products` | `getProducts` | All four trackers and subscription states returned |
-| `get_petlink_gps` | `getPetlinkGps` | Cached position, status and settings for all three active trackers |
+| `get_pets_and_products` | `getPetsAndProducts` | Same four pets and products in one round trip; products carry `petId` |
+| `get_subscription` | `getSubscriptionByProductId` | Status `active` and `currentTermEnd` returned for all three active trackers |
+| `get_petlink_gps` | `getPetlinkGps` | Cached position, status (`offline`, `shutdown`, `charging`, firmware), `newFirmwareVersion` and settings including `sentinelMigrationDone` for all three active trackers |
 | `get_activity_report` | `getActivities` | General report returned for all four pets |
 | `get_cat_activity_report` | `getActivitiesCat` | Schema valid; application result 404 after migration, surfaced as an error |
 | `get_activities_by_hour` | `getActivitiesByHour` | Successful empty lists after migration |
@@ -70,6 +72,16 @@ Only HTTP 401 permits one retry after login; transport failures and GraphQL erro
 are not replayed. A malformed token returned HTTP 500/AuthorizerFailureException in live validation;
 that remains a service error, not a reason to replay a request. No request or
 response payload, token, email, location or backend error message is logged.
+
+## Not available
+
+The schema publishes `onGpsMessagePosition` and `onGpsMessageStatus`
+subscriptions. Live validation over the AppSync realtime WebSocket returned
+`Unauthorized` for every tracker with the ID token and the access token, with and
+without a `Bearer` prefix, so user-pool credentials cannot receive push updates.
+Polling `get_petlink_gps` remains the only read path. The legacy `kippyIMEI` and
+`energySavingModePending` fields have no GraphQL counterpart; `expired_days` is
+derived from `get_subscription()["currentTermEnd"]`.
 
 ## Differences from the reference implementation
 
