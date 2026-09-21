@@ -56,6 +56,39 @@ The package has no Home Assistant imports, polling, entities, translation loadin
 or credential file handling. See [the protocol reference](https://github.com/ThomasHFWright/kippyAPIs)
 for the reverse-engineered API.
 
+## New app and automatic selection
+
+The original `KippyApi` continues to use the legacy PHP API. For new-app accounts,
+use `KippyGraphQLApi`, which exposes native Cognito/AppSync operations. To detect
+the account backend:
+
+```python
+from kippy_api import KippyGraphQLApi, async_connect
+
+api = await async_connect(session, email, password)  # backend="auto"
+if isinstance(api, KippyGraphQLApi):
+    pets = await api.get_pets()
+    for pet in pets:
+        products = await api.get_products(pet["id"])
+else:
+    pets = await api.get_pet_kippy_list()
+```
+
+Auto tries GraphQL first and falls back to legacy only on a definite account
+rejection. Migrated accounts may still authenticate to legacy with different IDs.
+Use `backend="legacy"` or `backend="graphql"` to select explicitly. Outages, MFA,
+account confirmation/reset requirements and empty results never trigger switching.
+
+The new client provides pets/products, cached GPS/status/settings, account migration
+status, general and cat activity reports, hourly activity and position history.
+All date arguments are timezone-aware datetimes. Device commands, keep-alives and
+settings writes are separate explicit methods; reads never send them. GraphQL and
+application-level errors raise `KippyResponseError` instead of becoming empty data.
+
+These are native methods, not a drop-in replacement for the legacy integration.
+See [validation and migration notes](docs/new-api.md) for tested behavior, method
+names, the reference implementation and the Home Assistant migration boundary.
+
 ## Development
 
 ```sh
