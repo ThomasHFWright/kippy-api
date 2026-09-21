@@ -77,22 +77,4 @@ For development with the adjacent Home Assistant integration, install this folde
 editable in its environment. Do not release an integration dependency on `0.1.0`
 until that version is published and its installation from PyPI is verified.
 
-## Publishing
-
-The workflow does not create a PyPI project or reserve the package name.
-Before your first release:
-
-1. Push the reviewed changes to `ThomasHFWright/kippy-api` on GitHub.
-2. Configure a PyPI pending trusted publisher for project `kippy-api`, owner
-   `ThomasHFWright`, repository `kippy-api`, workflow `publish.yml`, and environment
-   `pypi`. The name is proposed and is not reserved by this repository.
-3. Create the GitHub `pypi` environment with any desired protection rules.
-4. Set the version in `pyproject.toml`, refresh `uv.lock`, and tag the reviewed
-   commit `v0.1.0` (or the corresponding version).
-
-The tag workflow verifies version consistency, runs the same tests/build/install
-checks, and passes the resulting distributions to a separate job that uses PyPI
-Trusted Publishing. Only the publishing job can request an OIDC token. No API
-key belongs in an environment file or repository.
-
 Original source copyright (c) 2025 Thomas Wright, MIT license.
