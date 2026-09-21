@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kippy-api"
+version = "0.1.0"
+description = "Asynchronous Python client for the Kippy pet tracker API"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Thomas Wright"}]
+dependencies = ["aiohttp>=3.11,<4"]
+
+[project.urls]
+Source = "https://github.com/ThomasHFWright/kippy-api"
+Issues = "https://github.com/ThomasHFWright/kippy-api/issues"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=1", "pytest-cov>=6", "ruff>=0.12", "mypy>=1.15", "build>=1.2", "twine>=6"]
+
+[tool.setuptools.package-data]
+kippy_api = ["py.typed"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+addopts = "--cov=kippy_api --cov-report=term-missing --cov-fail-under=95"
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src/kippy_api"]
+check_untyped_defs = true

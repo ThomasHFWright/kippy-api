@@ -1,0 +1,57 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --frozen --group dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest
+      - name: Verify tag version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          uv run python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          assert os.environ['GITHUB_REF_NAME'] == f'v{version}', 'Tag/version mismatch'
+          PY
+      - run: uv run python -m build
+      - run: uv run twine check dist/*
+      - name: Install wheel without Home Assistant
+        run: |
+          uv venv .venv-wheel --python ${{ matrix.python }}
+          uv pip install --python .venv-wheel/bin/python dist/*.whl
+          .venv-wheel/bin/python - <<'PY'
+          import importlib.util
+          from importlib.resources import files
+          from kippy_api import KippyApi, KippyError
+          assert importlib.util.find_spec('homeassistant') is None
+          assert files('kippy_api').joinpath('py.typed').is_file()
+          PY
+      - uses: actions/upload-artifact@v4
+        if: matrix.python == '3.13'
+        with:
+          name: distributions
+          path: dist/*
+          if-no-files-found: error
