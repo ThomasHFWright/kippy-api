@@ -22,7 +22,7 @@ class ActivityEndpoint(BaseKippyApi):
 
     async def get_activity_categories(
         self,
-        pet_id: int,
+        pet_id: int | str,
         from_date: str,
         to_date: str,
         time_division: int,

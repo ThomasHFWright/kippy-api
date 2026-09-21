@@ -169,15 +169,17 @@ async def test_concurrent_refresh_uses_one_login():
         ("Asia/Kathmandu", "2025-01-01", "2025-01-02", 5.75, 24),
     ],
 )
-async def test_activity_timezone(tz, start, end, offset, hours):
+@pytest.mark.parametrize("pet_id", [42, "42"])
+async def test_activity_timezone(tz, start, end, offset, hours, pet_id):
     """Calendar midnights reflect DST and fractional UTC offsets."""
     api, session = client(
         (200, '{"return": 0, "ActivitiesData": [1], "AVGData": 2, "HealthData": 3}')
     )
     result = await api.get_activity_categories(
-        42, start, end, 2, 1, timezone=ZoneInfo(tz)
+        pet_id, start, end, 2, 1, timezone=ZoneInfo(tz)
     )
     payload = json.loads(session.post.call_args.kwargs["data"])
+    assert payload["petID"] == pet_id
     assert payload["timezone"] == offset
     assert payload["toDate"] - payload["fromDate"] == hours * 3600
     assert payload["timeDivisions"] == "d"
