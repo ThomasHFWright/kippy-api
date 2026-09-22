@@ -35,15 +35,17 @@ GET_PRODUCTS = """query getProducts($petId: String!) {
 GET_GPS = """query getPetlinkGps($id: String!) {
   getPetlinkGps(id: $id) { code petlinkGps {
     settings {
-      updateFrequency enableGpsOnDefault
+      updateFrequency enableGpsOnDefault activityProfile optimizationDone
       sentinelMigrationDone migrationWaitingForConnection
     }
-    lastKnownPosition { lat lng alt radius positionType date }
+    lastKnownPosition { lat lng alt radius precision speed positionType date }
     lastKnownStatus {
-      battery charging liveTracking energySavingMode offline shutdown
+      battery charging flashlight sound liveTracking geofence inGeofence
+      energySavingMode inEnergySavingZone tourRecording offline shutdown
       firmwareVersion date
     }
-    newFirmwareVersion { version }
+    newFirmwareVersion { version url }
+    logEnabled endOfLifeDevice
   } }
 }"""
 GET_PETS_AND_PRODUCTS = """query getPetsAndProducts {
@@ -90,6 +92,22 @@ GET_ACTIVITIES_BY_HOUR = """query getActivitiesByHour($petId: String!, $from: In
       timestamp walk sleep steps calories onTheMove play run feed jumps highMovement grooming
     }
   }
+}"""
+GET_GEOFENCES = """query getGeofences {
+  getGeofences { code geofences { id name position { lat lng } devices } }
+}"""
+GET_ENERGY_SAVING_ZONES = """query getEnergySavingZones {
+  getEnergySavingZones { code energySavingZones {
+    id name icon ssid bssid position { lat lng } radius
+  } }
+}"""
+GET_PET_HISTORY = """query getPetHistory($petId: String) {
+  getPetHistory(petId: $petId) { code petHistory {
+    id eventType date read extra { serialNumber newSerialNumber address }
+  } }
+}"""
+UPDATE_GPS = """mutation updatePetlinkGps($petlinkGps: UpdatePetlinkGpsIn!) {
+  updatePetlinkGps(petlinkGps: $petlinkGps) { code message }
 }"""
 SEND_COMMAND = """mutation sendCommand($command: Command!) {
   sendCommand(command: $command) { code message }
@@ -376,6 +394,71 @@ class KippyGraphQLApi:
             },
         )
         return _objects(result.get("positions"))
+
+    async def get_geofences(self) -> list[dict[str, Any]]:
+        """Read the account's geofences (polygon ``position`` lists, assigned ``devices``)."""
+        result = await self._operation(GET_GEOFENCES, "getGeofences")
+        return _objects(result.get("geofences"))
+
+    async def get_energy_saving_zones(self) -> list[dict[str, Any]]:
+        """Read Wi-Fi energy-saving zones (``ssid``/``bssid`` with a centre and radius)."""
+        result = await self._operation(GET_ENERGY_SAVING_ZONES, "getEnergySavingZones")
+        return _objects(result.get("energySavingZones"))
+
+    async def get_pet_history(self, pet_id: str) -> list[dict[str, Any]]:
+        """Read the pet event feed (geofence, energy-saving, battery, device events)."""
+        result = await self._operation(
+            GET_PET_HISTORY, "getPetHistory", {"petId": _identifier(pet_id)}
+        )
+        return _objects(result.get("petHistory"))
+
+    async def update_petlink_gps(
+        self,
+        product_id: str,
+        *,
+        update_frequency: int | None = None,
+        enable_gps_on_default: bool | None = None,
+        activity_profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Write tracker settings; only the given fields are sent."""
+        settings: dict[str, Any] = {}
+        if update_frequency is not None:
+            settings["updateFrequency"] = int(update_frequency)
+        if enable_gps_on_default is not None:
+            settings["enableGpsOnDefault"] = bool(enable_gps_on_default)
+        if activity_profile is not None:
+            settings["activityProfile"] = _identifier(activity_profile)
+        if not settings:
+            raise ValueError("At least one setting is required")
+        return await self._operation(
+            UPDATE_GPS,
+            "updatePetlinkGps",
+            {"petlinkGps": {"id": _identifier(product_id), "settings": settings}},
+        )
+
+    async def start_live_tracking(
+        self, product_id: str, duration: int | None = None
+    ) -> dict[str, Any]:
+        """Request live tracking; status moves REQUESTED -> ON as the tracker reconnects."""
+        command: dict[str, Any] = {
+            "commandType": "LIVE_TRACKING",
+            "id": _identifier(product_id),
+        }
+        if duration is not None:
+            if int(duration) <= 0:
+                raise ValueError("Use stop_live_tracking to end a session")
+            command["duration"] = int(duration)
+        return await self.send_command(command)
+
+    async def stop_live_tracking(self, product_id: str) -> dict[str, Any]:
+        """End live tracking; the service reports OFF within seconds (duration 0)."""
+        return await self.send_command(
+            {
+                "commandType": "LIVE_TRACKING",
+                "id": _identifier(product_id),
+                "duration": 0,
+            }
+        )
 
     async def send_command(self, command: dict[str, Any]) -> dict[str, Any]:
         """Send an explicit native Command input and reject non-200 result codes.

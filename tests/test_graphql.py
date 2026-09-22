@@ -251,6 +251,56 @@ async def test_explicit_mutation_inputs_and_result_codes():
     }
 
 
+async def test_device_control_and_configuration_reads():
+    """Live-tracking wrappers, settings writes and the geofence/zone/history reads."""
+    geofences = [{"id": "g", "name": "Home", "position": [{"lat": 1.0, "lng": 2.0}]}]
+    zones = [{"id": "z", "ssid": "wifi", "bssid": "aa:bb", "radius": 10.0}]
+    events = [{"id": "e", "eventType": "ENERGY_SAVING_ZONE_OUT", "read": False}]
+    ok = {"code": "200", "message": "Ok"}
+    api, session = client(
+        (200, {"data": {"getGeofences": {"code": "200", "geofences": geofences}}}),
+        (
+            200,
+            {
+                "data": {
+                    "getEnergySavingZones": {"code": "200", "energySavingZones": zones}
+                }
+            },
+        ),
+        (200, {"data": {"getPetHistory": {"code": "200", "petHistory": events}}}),
+        (200, {"data": {"updatePetlinkGps": ok}}),
+        (200, {"data": {"sendCommand": ok}}),
+        (200, {"data": {"sendCommand": ok}}),
+        (200, {"data": {"sendCommand": ok}}),
+    )
+    assert await api.get_geofences() == geofences
+    assert await api.get_energy_saving_zones() == zones
+    assert await api.get_pet_history("pet") == events
+    assert session.post.call_args.kwargs["json"]["variables"] == {"petId": "pet"}
+
+    assert await api.update_petlink_gps("device", update_frequency=60) == ok
+    assert session.post.call_args.kwargs["json"]["variables"] == {
+        "petlinkGps": {"id": "device", "settings": {"updateFrequency": 60}}
+    }
+
+    def sent():
+        return session.post.call_args.kwargs["json"]["variables"]["command"]
+
+    await api.start_live_tracking("device")
+    assert sent() == {"commandType": "LIVE_TRACKING", "id": "device"}
+    await api.start_live_tracking("device", duration=300)
+    assert sent()["duration"] == 300
+    await api.stop_live_tracking("device")
+    assert sent() == {"commandType": "LIVE_TRACKING", "id": "device", "duration": 0}
+    for call in (
+        api.update_petlink_gps("device"),
+        api.start_live_tracking("device", duration=0),
+        api.get_pet_history(""),
+    ):
+        with pytest.raises(ValueError):
+            await call
+
+
 async def test_inputs_fail_before_http():
     api, session = client()
     for call in (

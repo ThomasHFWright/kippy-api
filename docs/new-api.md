@@ -55,7 +55,12 @@ GraphQL authentication succeeds, not an unauthenticated discovery endpoint.
 | `get_cat_activity_report` | `getActivitiesCat` | Schema valid; application result 404 after migration, surfaced as an error |
 | `get_activities_by_hour` | `getActivitiesByHour` | Successful empty lists after migration |
 | `get_positions_history` | `getPositionsHistory` | Successful empty lists for the requested recent day |
-| `send_command` | `sendCommand` | Schema and synthetic tests; no live device command sent |
+| `get_geofences` | `getGeofences` | One polygon geofence returned with six vertices (2026-09-22) |
+| `get_energy_saving_zones` | `getEnergySavingZones` | One Wi-Fi zone returned with `ssid`, `bssid`, centre and radius (2026-09-22) |
+| `get_pet_history` | `getPetHistory` | Energy-saving zone in/out, firmware update and replacement events returned (2026-09-22) |
+| `update_petlink_gps` | `updatePetlinkGps` | Live no-op write of the current `updateFrequency`/`enableGpsOnDefault` acknowledged with code 200 (2026-09-22) |
+| `start_live_tracking` / `stop_live_tracking` | `sendCommand` `LIVE_TRACKING` | Live on a Cat tracker: status `REQUESTED` within seconds, `ON` after the tracker reconnected (~90 s, tracker rebooted); `duration: 0` returned it to `OFF` within 5 s. Re-sending without a duration re-requests instead of stopping (2026-09-22) |
+| `send_command` | `sendCommand` | Schema and synthetic tests; `FLASHLIGHT`, `SOUND`, `SHUTDOWN`, `WAKEUP` not sent live |
 | `app_keep_alive` | `appKeepAlive` | Schema and synthetic tests; not sent live |
 | `send_setting` | `sendSetting` | Schema and synthetic tests; no live settings changed |
 
@@ -82,6 +87,13 @@ without a `Bearer` prefix, so user-pool credentials cannot receive push updates.
 Polling `get_petlink_gps` remains the only read path. The legacy `kippyIMEI` and
 `energySavingModePending` fields have no GraphQL counterpart; `expired_days` is
 derived from `get_subscription()["currentTermEnd"]`.
+
+`pushGpsMessagePositionBLE` is what the phone app uses to upload its own GPS fix
+every 60 s while live tracking is active. It is accepted only during a live
+session and accepted points never appear in position history or the cached
+position, so it is not implemented. The legacy `kippymap_action` live-tracking
+switch makes the tracker reconnect but leaves the GraphQL `liveTracking` status
+`OFF`; use `start_live_tracking` instead.
 
 ## Differences from the reference implementation
 

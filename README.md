@@ -81,7 +81,10 @@ account confirmation/reset requirements and empty results never trigger switchin
 
 The new client provides pets/products (separately or combined), cached
 GPS/status/settings, tracker firmware and migration flags, subscription terms, account
-migration status, general and cat activity reports, hourly activity and position history.
+migration status, general and cat activity reports, hourly activity, position history,
+geofences, energy-saving zones and the pet event feed. Cached status covers battery,
+charging, light, sound, live tracking, geofence and energy-saving state. Live tracking
+has explicit start/stop methods and tracker settings have an explicit update method.
 All date arguments are timezone-aware datetimes. Device commands, keep-alives and
 settings writes are separate explicit methods; reads never send them. GraphQL and
 application-level errors raise `KippyResponseError` instead of becoming empty data.
@@ -109,5 +112,15 @@ range remains compatible with the consuming application's aiohttp version.
 
 For development with the adjacent Home Assistant integration, install this folder
 editable in its environment.
+
+## Credits
+
+The new-app (Cognito/AppSync) protocol in this package builds on the work of
+[Daniel Kahrizi (IamDiesel)](https://github.com/IamDiesel), whose
+[kippy-homeassistant-lola](https://github.com/IamDiesel/kippy-homeassistant-lola)
+integration first documented the GraphQL operations, authentication flow and
+tracker behaviour of the migrated Kippy service. His reference implementation and
+write-ups made the new-app client possible; the differences are listed in
+[docs/new-api.md](docs/new-api.md). Both projects are MIT licensed.
 
 Original source copyright (c) 2025 Thomas Wright, MIT license.
